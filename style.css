@@ -15,12 +15,6 @@ body {
   padding: 24px;
 }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .subtitle {
   font-size: 14px;
   color: #6b7280;
@@ -86,6 +80,21 @@ body {
 }
 
 /* TABLE */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.table-header input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  width: 220px;
+}
+
 .table-wrapper {
   max-height: 420px;
   overflow-y: auto;

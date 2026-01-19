@@ -53,7 +53,17 @@
 
   <!-- TABLE -->
   <div class="card">
-    <h3>Provincial Data Breakdown</h3>
+    <div class="table-header">
+      <h3>Provincial Data Breakdown</h3>
+
+      <!-- SEARCH -->
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Search province..."
+      />
+    </div>
+
     <div class="table-wrapper">
       <table>
         <thead>
@@ -72,12 +82,13 @@
 </div>
 
 <script>
-const VISIBLE_COUNT = 10; // จำนวนจังหวัดที่โชว์ต่อครั้ง
+const VISIBLE_COUNT = 10;
 let provinces = [];
+let usersData = [];
 
 async function loadData() {
   const usageJson = await (await fetch('electricity_usages_en.json')).json();
-  const userData  = await (await fetch('electricity_users_en.json')).json();
+  usersData = await (await fetch('electricity_users_en.json')).json();
 
   provinces = usageJson.Sheet1.map(p => {
     const consumption = Object.keys(p)
@@ -89,7 +100,7 @@ async function loadData() {
 
   provinces.sort((a,b)=>b.consumption-a.consumption);
 
-  // stats
+  // ---- Stats ----
   const totalConsumption = provinces.reduce((s,p)=>s+p.consumption,0);
   document.getElementById('totalConsumption').textContent =
     totalConsumption.toLocaleString() + ' kWh';
@@ -99,27 +110,33 @@ async function loadData() {
 
   document.getElementById('topProvince').textContent = provinces[0].name;
 
-  const totalUsers = userData.reduce((s,p)=>{
+  const totalUsers = usersData.reduce((s,p)=>{
     return s + Object.keys(p)
       .filter(k=>k.endsWith('_count'))
       .reduce((x,k)=>x+(Number(p[k])||0),0);
   },0);
   document.getElementById('totalUsers').textContent = totalUsers.toLocaleString();
 
-  // slider setup
+  // ---- Chart slider ----
   const slider = document.getElementById('chartSlider');
   slider.max = provinces.length - VISIBLE_COUNT;
   slider.addEventListener('input', () => renderChart(+slider.value));
 
+  // ---- Search ----
+  document.getElementById('searchInput')
+    .addEventListener('input', e => {
+      renderTable(e.target.value.trim().toLowerCase());
+    });
+
   renderChart(0);
-  renderTable(userData);
+  renderTable('');
 }
 
-function renderChart(startIndex) {
-  const barChart = document.getElementById('barChart');
-  barChart.innerHTML = '';
+function renderChart(start) {
+  const chart = document.getElementById('barChart');
+  chart.innerHTML = '';
 
-  const slice = provinces.slice(startIndex, startIndex + VISIBLE_COUNT);
+  const slice = provinces.slice(start, start + VISIBLE_COUNT);
   const max = slice[0].consumption;
 
   slice.forEach(p => {
@@ -127,32 +144,36 @@ function renderChart(startIndex) {
     bar.className = 'bar';
     bar.style.height = (p.consumption / max * 100) + '%';
     bar.innerHTML = `<span>${p.name}</span>`;
-    barChart.appendChild(bar);
+    chart.appendChild(bar);
   });
 }
 
-function renderTable(userData) {
+function renderTable(keyword) {
   const tbody = document.getElementById('provinceTable');
+  tbody.innerHTML = '';
 
-  provinces.forEach(p => {
-    const users = userData.find(u => u.province_name === p.name);
-    const userCount = users
-      ? Object.keys(users)
-          .filter(k=>k.endsWith('_count'))
-          .reduce((s,k)=>s+(Number(users[k])||0),0)
-      : 0;
+  provinces
+    .filter(p => p.name.toLowerCase().includes(keyword))
+    .forEach(p => {
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${p.name}</td>
-      <td>${userCount.toLocaleString()}</td>
-      <td>${p.consumption.toLocaleString()}</td>
-      <td class="blue">
-        ${userCount ? Math.round(p.consumption/userCount).toLocaleString() : '-'}
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
+      const users = usersData.find(u => u.province_name === p.name);
+      const userCount = users
+        ? Object.keys(users)
+            .filter(k=>k.endsWith('_count'))
+            .reduce((s,k)=>s+(Number(users[k])||0),0)
+        : 0;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${p.name}</td>
+        <td>${userCount.toLocaleString()}</td>
+        <td>${p.consumption.toLocaleString()}</td>
+        <td class="blue">
+          ${userCount ? Math.round(p.consumption / userCount).toLocaleString() : '-'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
 }
 
 loadData();
