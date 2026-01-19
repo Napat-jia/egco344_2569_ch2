@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Electricity Usage Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h1>Electricity Usage Dashboard</h1>
+      <p class="subtitle">Provincial distribution and sector breakdown analysis</p>
+    </div>
+    <select>
+      <option>2566</option>
+    </select>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="card">
+      <span>Total Consumption</span>
+      <h2 id="totalConsumption" class="blue">-</h2>
+    </div>
+    <div class="card">
+      <span>Total Active Users</span>
+      <h2 id="totalUsers">-</h2>
+    </div>
+    <div class="card">
+      <span>Avg Usage per Province</span>
+      <h2 id="avgUsage" class="green">-</h2>
+    </div>
+    <div class="card">
+      <span>Top Province</span>
+      <h2 id="topProvince" class="orange">-</h2>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts">
+
+    <div class="card">
+      <h3>Electricity Usage by Province (Top 15)</h3>
+      <div id="barChart" class="bar-chart"></div>
+    </div>
+
+    <div class="card center">
+      <h3>Usage Sector Breakdown</h3>
+      <div class="donut"></div>
+      <p class="hint">Residential / Business overview</p>
+    </div>
+
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <h3>Provincial Data Breakdown</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Province</th>
+          <th>Total Users</th>
+          <th>Consumption (kWh)</th>
+          <th>Usage / User</th>
+        </tr>
+      </thead>
+      <tbody id="provinceTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+async function loadData() {
+  const usageRes = await fetch('electricity_usages_en.json');
+  const userRes  = await fetch('electricity_users_en.json');
+
+  const usageData = (await usageRes.json()).Sheet1;
+  const userData  = await userRes.json();
+
+  // ---- Calculate consumption per province ----
+  const provinces = usageData.map(p => {
+    const total = Object.keys(p)
+      .filter(k => k.endsWith('_kwh'))
+      .reduce((sum, k) => sum + (p[k] || 0), 0);
+
+    return {
+      name: p.province_name,
+      consumption: total
+    };
+  });
+
+  // ---- Total consumption ----
+  const totalConsumption = provinces.reduce((s,p)=>s+p.consumption,0);
+  document.getElementById('totalConsumption').textContent =
+    totalConsumption.toLocaleString() + ' kWh';
+
+  // ---- Total users ----
+  const totalUsers = userData.reduce((s,p)=>{
+    return s + Object.keys(p)
+      .filter(k => k.endsWith('_count'))
+      .reduce((x,k)=>x+(p[k]||0),0);
+  },0);
+
+  document.getElementById('totalUsers').textContent =
+    totalUsers.toLocaleString();
+
+  // ---- Avg usage ----
+  document.getElementById('avgUsage').textContent =
+    Math.round(totalConsumption / provinces.length).toLocaleString() + ' kWh';
+
+  // ---- Top province ----
+  provinces.sort((a,b)=>b.consumption-a.consumption);
+  document.getElementById('topProvince').textContent = provinces[0].name;
+
+  // ---- Bar chart (Top 15) ----
+  const max = provinces[0].consumption;
+  const barChart = document.getElementById('barChart');
+
+  provinces.slice(0,15).forEach(p=>{
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = (p.consumption / max * 100) + '%';
+    bar.innerHTML = `<span>${p.name}</span>`;
+    barChart.appendChild(bar);
+  });
+
+  // ---- Table ----
+  const tbody = document.getElementById('provinceTable');
+  provinces.slice(0,10).forEach(p=>{
+    const users = userData.find(u=>u.province_name===p.name);
+    const userCount = users
+      ? Object.keys(users).filter(k=>k.endsWith('_count'))
+        .reduce((s,k)=>s+(users[k]||0),0)
+      : 0;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td>${userCount.toLocaleString()}</td>
+      <td>${p.consumption.toLocaleString()}</td>
+      <td class="blue">${userCount ? Math.round(p.consumption/userCount).toLocaleString() : '-'}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+loadData();
+</script>
+
+</body>
+</html>
